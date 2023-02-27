@@ -1,4 +1,4 @@
-module github.com/cedws/goiap
+module github.com/cedws/iapc
 
 go 1.19
 

@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/cedws/goiap/iap"
+	"github.com/cedws/iapc/iap"
 	"github.com/spf13/cobra"
 )
 

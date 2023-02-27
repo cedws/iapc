@@ -5,11 +5,10 @@ import (
 	"io"
 	"net"
 
+	"github.com/cedws/iapc/iap"
 	"github.com/charmbracelet/log"
-	"golang.org/x/oauth2/google"
-
-	"github.com/cedws/goiap/iap"
 	"github.com/spf13/cobra"
+	"golang.org/x/oauth2/google"
 )
 
 var (
@@ -20,7 +19,7 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:  "goiap",
+	Use:  "iapc",
 	Long: "Utility for Google Cloud's Identity-Aware Proxy",
 }
 
