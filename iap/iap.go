@@ -175,7 +175,7 @@ func (c *Conn) readFrame(buf [8]byte) error {
 	if err != nil {
 		var closeError websocket.CloseError
 		if errors.As(err, &closeError) {
-			return fmt.Errorf("proxy connection closed for reason %v, code %v", closeError.Reason, closeError.Code)
+			return fmt.Errorf("Proxy closed connection with code %v, reason: %v", int(closeError.Code), closeError.Reason)
 		}
 		return closeError
 	}
@@ -193,7 +193,7 @@ func (c *Conn) readFrame(buf [8]byte) error {
 	case subprotoTagData:
 		err = c.readDataFrame(buf, reader)
 	default:
-		return fmt.Errorf("unknown subprotocol tag %v", tag)
+		return fmt.Errorf("Unknown subprotocol tag %v", tag)
 	}
 	if err != nil {
 		return err

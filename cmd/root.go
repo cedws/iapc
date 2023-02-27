@@ -61,7 +61,7 @@ func handleConn(opts []iap.DialOption, conn net.Conn) {
 
 	tun, err := iap.Dial(context.Background(), getToken(), opts...)
 	if err != nil {
-		log.Info(err)
+		log.Error(err)
 		return
 	}
 	defer tun.Close()
