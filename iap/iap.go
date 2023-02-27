@@ -33,13 +33,19 @@ func min[T int | uint](a, b T) T {
 	return b
 }
 
+func copyNBuffer(w io.Writer, r io.Reader, n int64, buf []byte) (int64, error) {
+	return io.CopyBuffer(w, io.LimitReader(r, n), buf)
+}
+
 type Conn struct {
 	conn          *websocket.Conn
 	sessionID     []byte
 	recvBytes     uint64
+	receiveBuf    []byte
 	receiveReader *io.PipeReader
 	receiveWriter *io.PipeWriter
 	sendNbCh      chan int
+	sendBuf       []byte
 	sendReader    *io.PipeReader
 	sendWriter    *io.PipeWriter
 }
@@ -94,9 +100,11 @@ func Dial(ctx context.Context, token string, opts ...DialOption) (*Conn, error) 
 
 	c := &Conn{
 		conn:          conn,
+		receiveBuf:    make([]byte, 32*1024),
 		receiveReader: receiveReader,
 		receiveWriter: receiveWriter,
 		sendNbCh:      make(chan int),
+		sendBuf:       make([]byte, 32*1024),
 		sendReader:    sendReader,
 		sendWriter:    sendWriter,
 	}
@@ -170,7 +178,7 @@ func (c *Conn) readDataFrame(buf [8]byte, r io.Reader) error {
 	}
 	len := binary.BigEndian.Uint32(buf[:4])
 
-	if _, err := io.CopyN(c.receiveWriter, r, int64(len)); err != nil {
+	if _, err := copyNBuffer(c.receiveWriter, r, int64(len), c.receiveBuf); err != nil {
 		return err
 	}
 	c.recvBytes += uint64(len)
@@ -230,7 +238,7 @@ func (c *Conn) writeFrame() error {
 		binary.Write(writer, binary.BigEndian, subprotoTagData)
 		binary.Write(writer, binary.BigEndian, uint32(nbLimit))
 
-		if _, err := io.CopyN(writer, c.sendReader, int64(nbLimit)); err != nil {
+		if _, err := copyNBuffer(writer, c.sendReader, int64(nbLimit), c.sendBuf); err != nil {
 			return err
 		}
 
