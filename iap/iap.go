@@ -26,13 +26,20 @@ const (
 	subprotoTagAck       uint16 = 0x7
 )
 
+func min[T int | uint](a, b T) T {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 type Conn struct {
 	conn          *websocket.Conn
 	sessionID     []byte
 	recvBytes     uint64
 	receiveReader *io.PipeReader
 	receiveWriter *io.PipeWriter
-	sendCh        chan int
+	sendNbCh      chan int
 	sendReader    *io.PipeReader
 	sendWriter    *io.PipeWriter
 }
@@ -89,7 +96,7 @@ func Dial(ctx context.Context, token string, opts ...DialOption) (*Conn, error) 
 		conn:          conn,
 		receiveReader: receiveReader,
 		receiveWriter: receiveWriter,
-		sendCh:        make(chan int),
+		sendNbCh:      make(chan int),
 		sendReader:    sendReader,
 		sendWriter:    sendWriter,
 	}
@@ -112,7 +119,7 @@ func (c *Conn) Read(buf []byte) (n int, err error) {
 }
 
 func (c *Conn) Write(buf []byte) (n int, err error) {
-	c.sendCh <- len(buf)
+	c.sendNbCh <- len(buf)
 	return c.sendWriter.Write(buf)
 }
 
@@ -208,19 +215,26 @@ func (c *Conn) readFrame(buf [8]byte) error {
 }
 
 func (c *Conn) writeFrame() error {
-	nb := <-c.sendCh
+	nb := <-c.sendNbCh
 
-	writer, err := c.conn.Writer(context.Background(), websocket.MessageBinary)
-	if err != nil {
-		return err
-	}
-	defer writer.Close()
+	for nb > 0 {
+		// clamp each write to max frame size
+		nbLimit := min(nb, subprotoMaxFrameSize)
 
-	binary.Write(writer, binary.BigEndian, subprotoTagData)
-	binary.Write(writer, binary.BigEndian, uint32(nb))
+		writer, err := c.conn.Writer(context.Background(), websocket.MessageBinary)
+		if err != nil {
+			return err
+		}
+		defer writer.Close()
 
-	if _, err := io.CopyN(writer, c.sendReader, int64(nb)); err != nil {
-		return err
+		binary.Write(writer, binary.BigEndian, subprotoTagData)
+		binary.Write(writer, binary.BigEndian, uint32(nbLimit))
+
+		if _, err := io.CopyN(writer, c.sendReader, int64(nbLimit)); err != nil {
+			return err
+		}
+
+		nb -= nbLimit
 	}
 
 	return nil
