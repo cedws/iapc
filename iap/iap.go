@@ -100,11 +100,11 @@ func Dial(ctx context.Context, token string, opts ...DialOption) (*Conn, error) 
 
 	c := &Conn{
 		conn:          conn,
-		receiveBuf:    make([]byte, 32*1024),
+		receiveBuf:    make([]byte, subprotoMaxFrameSize),
 		receiveReader: receiveReader,
 		receiveWriter: receiveWriter,
 		sendNbCh:      make(chan int),
-		sendBuf:       make([]byte, 32*1024),
+		sendBuf:       make([]byte, subprotoMaxFrameSize),
 		sendReader:    sendReader,
 		sendWriter:    sendWriter,
 	}
@@ -177,6 +177,9 @@ func (c *Conn) readDataFrame(buf [8]byte, r io.Reader) error {
 		return err
 	}
 	len := binary.BigEndian.Uint32(buf[:4])
+	if len > subprotoMaxFrameSize {
+		panic("len exceeds subprotocol max data frame size")
+	}
 
 	if _, err := copyNBuffer(c.receiveWriter, r, int64(len), c.receiveBuf); err != nil {
 		return err
