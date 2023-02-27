@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net"
 
@@ -14,46 +13,32 @@ import (
 )
 
 var (
-	compress   bool
-	listen     string
-	project    string
-	instance   string
-	zone       string
-	iinterface string
-	port       int
+	compress bool
+	listen   string
+	project  string
+	port     uint
 )
 
 var rootCmd = &cobra.Command{
 	Use:  "goiap",
 	Long: "Utility for Google Cloud's Identity-Aware Proxy",
-	Args: cobra.NoArgs,
-	Run: func(cmd *cobra.Command, args []string) {
-		opts := []iap.DialOption{
-			iap.WithProject(project),
-			iap.WithInstance(instance),
-			iap.WithZone(zone),
-			iap.WithInterface(iinterface),
-			iap.WithPort(fmt.Sprint(port)),
-		}
-		if compress {
-			opts = append(opts, iap.WithCompression())
-		}
+}
 
-		listener, err := net.Listen("tcp", listen)
+func startProxy(opts []iap.DialOption) {
+	listener, err := net.Listen("tcp", listen)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Info("Listening on TCP", "server", listener.Addr())
+
+	for {
+		conn, err := listener.Accept()
 		if err != nil {
 			log.Fatal(err)
 		}
-		log.Info("Listening on TCP", "server", listener.Addr())
 
-		for {
-			conn, err := listener.Accept()
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			go handleConn(opts, conn)
-		}
-	},
+		go handleConn(opts, conn)
+	}
 }
 
 func handleConn(opts []iap.DialOption, conn net.Conn) {
@@ -92,13 +77,9 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.Flags().BoolVarP(&compress, "compress", "c", false, "Enable WebSocket compression")
-	rootCmd.Flags().StringVarP(&listen, "listen", "l", "127.0.0.1:0", "Listen address and port")
-	rootCmd.Flags().StringVarP(&project, "project", "p", "", "Project ID")
-	rootCmd.Flags().StringVarP(&instance, "instance", "i", "", "Target instance name")
-	rootCmd.Flags().StringVarP(&zone, "zone", "z", "", "Target zone name")
-	rootCmd.Flags().StringVarP(&iinterface, "interface", "n", "nic0", "Target network interface")
-	rootCmd.Flags().IntVarP(&port, "port", "o", 22, "Target port")
-
+	rootCmd.PersistentFlags().BoolVarP(&compress, "compress", "c", false, "Enable WebSocket compression")
+	rootCmd.PersistentFlags().StringVarP(&listen, "listen", "l", "127.0.0.1:0", "Listen address and port")
+	rootCmd.PersistentFlags().StringVarP(&project, "project", "p", "", "Project ID")
+	rootCmd.PersistentFlags().UintVarP(&port, "port", "o", 22, "Target port")
 	rootCmd.MarkFlagRequired("project")
 }

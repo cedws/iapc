@@ -41,6 +41,7 @@ func connectURL(dopts dialOptions) string {
 	query := url.Values{
 		"project":   []string{dopts.Project},
 		"instance":  []string{dopts.Instance},
+		"host":      []string{dopts.Host},
 		"zone":      []string{dopts.Zone},
 		"region":    []string{dopts.Region},
 		"network":   []string{dopts.Network},
