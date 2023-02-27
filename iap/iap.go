@@ -38,16 +38,19 @@ func copyNBuffer(w io.Writer, r io.Reader, n int64, buf []byte) (int64, error) {
 }
 
 type Conn struct {
-	conn          *websocket.Conn
-	sessionID     []byte
-	recvBytes     uint64
-	receiveBuf    []byte
-	receiveReader *io.PipeReader
-	receiveWriter *io.PipeWriter
-	sendNbCh      chan int
-	sendBuf       []byte
-	sendReader    *io.PipeReader
-	sendWriter    *io.PipeWriter
+	conn      *websocket.Conn
+	sessionID []byte
+
+	recvAckedNb   uint64
+	recvUnackedNb uint64
+	recvBuf       []byte
+	recvReader    *io.PipeReader
+	recvWriter    *io.PipeWriter
+
+	sendNbCh   chan int
+	sendBuf    []byte
+	sendReader *io.PipeReader
+	sendWriter *io.PipeWriter
 }
 
 func connectURL(dopts dialOptions) string {
@@ -95,18 +98,20 @@ func Dial(ctx context.Context, token string, opts ...DialOption) (*Conn, error) 
 		return nil, err
 	}
 
-	receiveReader, receiveWriter := io.Pipe()
+	recvReader, recvWriter := io.Pipe()
 	sendReader, sendWriter := io.Pipe()
 
 	c := &Conn{
-		conn:          conn,
-		receiveBuf:    make([]byte, subprotoMaxFrameSize),
-		receiveReader: receiveReader,
-		receiveWriter: receiveWriter,
-		sendNbCh:      make(chan int),
-		sendBuf:       make([]byte, subprotoMaxFrameSize),
-		sendReader:    sendReader,
-		sendWriter:    sendWriter,
+		conn: conn,
+
+		recvBuf:    make([]byte, subprotoMaxFrameSize),
+		recvReader: recvReader,
+		recvWriter: recvWriter,
+
+		sendNbCh:   make(chan int),
+		sendBuf:    make([]byte, subprotoMaxFrameSize),
+		sendReader: sendReader,
+		sendWriter: sendWriter,
 	}
 	if err := c.readFrame([8]byte{}); err != nil {
 		return nil, err
@@ -123,7 +128,7 @@ func (c *Conn) Close() error {
 }
 
 func (c *Conn) Read(buf []byte) (n int, err error) {
-	return c.receiveReader.Read(buf)
+	return c.recvReader.Read(buf)
 }
 
 func (c *Conn) Write(buf []byte) (n int, err error) {
@@ -135,7 +140,7 @@ func (c *Conn) SessionID() string {
 	return string(c.sessionID)
 }
 
-func (c *Conn) writeAck() error {
+func (c *Conn) writeAck(bytes uint64) error {
 	writer, err := c.conn.Writer(context.Background(), websocket.MessageBinary)
 	if err != nil {
 		return err
@@ -143,7 +148,7 @@ func (c *Conn) writeAck() error {
 	defer writer.Close()
 
 	binary.Write(writer, binary.BigEndian, subprotoTagAck)
-	binary.Write(writer, binary.BigEndian, c.recvBytes)
+	binary.Write(writer, binary.BigEndian, bytes)
 
 	return nil
 }
@@ -153,9 +158,11 @@ func (c *Conn) readSuccessFrame(buf [8]byte, r io.Reader) error {
 		return err
 	}
 	len := binary.BigEndian.Uint32(buf[:4])
+	if len > subprotoMaxFrameSize {
+		panic("len exceeds subprotocol max data frame size")
+	}
 
-	// cap slice to subprotocolMaxFrameSize to prevent resource exhaustion by server
-	c.sessionID = make([]byte, len, subprotoMaxFrameSize)
+	c.sessionID = make([]byte, len)
 	if _, err := r.Read([]byte(c.sessionID)); err != nil {
 		return err
 	}
@@ -181,10 +188,10 @@ func (c *Conn) readDataFrame(buf [8]byte, r io.Reader) error {
 		panic("len exceeds subprotocol max data frame size")
 	}
 
-	if _, err := copyNBuffer(c.receiveWriter, r, int64(len), c.receiveBuf); err != nil {
+	if _, err := copyNBuffer(c.recvWriter, r, int64(len), c.recvBuf); err != nil {
 		return err
 	}
-	c.recvBytes += uint64(len)
+	c.recvUnackedNb += uint64(len)
 
 	return nil
 }
@@ -211,14 +218,18 @@ func (c *Conn) readFrame(buf [8]byte) error {
 		err = c.readAckFrame(buf, reader)
 	case subprotoTagData:
 		err = c.readDataFrame(buf, reader)
+
+		// can the threshold be increased?
+		if c.recvUnackedNb-c.recvAckedNb > 2*subprotoMaxFrameSize {
+			if err := c.writeAck(c.recvUnackedNb); err != nil {
+				return err
+			}
+			c.recvAckedNb = c.recvUnackedNb
+		}
 	default:
 		return fmt.Errorf("Unknown subprotocol tag %v", tag)
 	}
 	if err != nil {
-		return err
-	}
-
-	if err := c.writeAck(); err != nil {
 		return err
 	}
 
