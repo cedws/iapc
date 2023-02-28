@@ -228,13 +228,11 @@ func (c *Conn) readFrame(buf [8]byte) error {
 			c.recvAckedNb = c.recvUnackedNb
 		}
 	default:
-		return fmt.Errorf("Unknown subprotocol tag %v", tag)
-	}
-	if err != nil {
-		return err
+		// unknown tags should be ignored
+		return nil
 	}
 
-	return nil
+	return err
 }
 
 func (c *Conn) writeFrame() error {
