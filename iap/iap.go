@@ -124,6 +124,7 @@ func Dial(ctx context.Context, token string, opts ...DialOption) (*Conn, error) 
 }
 
 func (c *Conn) Close() error {
+	close(c.sendNbCh)
 	return c.conn.Close(websocket.StatusNormalClosure, "Connection closed")
 }
 
@@ -247,7 +248,6 @@ func (c *Conn) writeFrame() error {
 		if err != nil {
 			return err
 		}
-		defer writer.Close()
 
 		binary.Write(writer, binary.BigEndian, subprotoTagData)
 		binary.Write(writer, binary.BigEndian, uint32(nbLimit))
@@ -255,6 +255,7 @@ func (c *Conn) writeFrame() error {
 		if _, err := copyNBuffer(writer, c.sendReader, int64(nbLimit), c.sendBuf); err != nil {
 			return err
 		}
+		writer.Close()
 
 		nb -= nbLimit
 	}
