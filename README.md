@@ -26,5 +26,5 @@ $ iapc to-instance prod-1 --project analog-figure-330721 --zone europe-west2-a
 Here's an example of how to create a tunnel to a private IP or FQDN in a VPC. This requires BeyondCorp Enterprise and a TCP Destination Group.
 
 ```sh
-$ iapc to-host prod-1 --project analog-figure-330721 --region europe-west2 --network prod --dest-group prod
+$ iapc to-host 192.168.0.1 --project analog-figure-330721 --region europe-west2 --network prod --dest-group prod
 ```
