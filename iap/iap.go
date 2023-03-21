@@ -55,14 +55,15 @@ type Conn struct {
 
 func connectURL(dopts dialOptions) string {
 	query := url.Values{
-		"project":   []string{dopts.Project},
-		"instance":  []string{dopts.Instance},
-		"host":      []string{dopts.Host},
 		"zone":      []string{dopts.Zone},
 		"region":    []string{dopts.Region},
+		"project":   []string{dopts.Project},
+		"port":      []string{dopts.Port},
 		"network":   []string{dopts.Network},
 		"interface": []string{dopts.Interface},
-		"port":      []string{dopts.Port},
+		"instance":  []string{dopts.Instance},
+		"host":      []string{dopts.Host},
+		"group":     []string{dopts.Group},
 	}
 
 	url := url.URL{
@@ -75,7 +76,7 @@ func connectURL(dopts dialOptions) string {
 	return url.String()
 }
 
-func Dial(ctx context.Context, token string, opts ...DialOption) (*Conn, error) {
+func Dial(ctx context.Context, opts ...DialOption) (*Conn, error) {
 	var dopts dialOptions
 	for _, opt := range opts {
 		opt(&dopts)
@@ -83,7 +84,7 @@ func Dial(ctx context.Context, token string, opts ...DialOption) (*Conn, error) 
 
 	wsOptions := websocket.DialOptions{
 		HTTPHeader: http.Header{
-			"Authorization": []string{fmt.Sprintf("Bearer %v", token)},
+			"Authorization": []string{fmt.Sprintf("Bearer %v", dopts.Token)},
 			"Origin":        []string{proxyOrigin},
 		},
 		Subprotocols:    []string{proxySubproto},

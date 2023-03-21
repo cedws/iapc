@@ -14,8 +14,8 @@ var (
 )
 
 var hostCmd = &cobra.Command{
-	Use:  "host",
-	Long: "Create a tunnel to a remote host or FQDN (requires BeyondCorp Enterprise)",
+	Use:  "to-host",
+	Long: "Create a tunnel to a remote private IP or FQDN (requires BeyondCorp Enterprise)",
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		opts := []iap.DialOption{
@@ -32,9 +32,9 @@ var hostCmd = &cobra.Command{
 }
 
 func init() {
-	hostCmd.Flags().StringVarP(&zone, "dest-group", "g", "", "Destination group name")
+	hostCmd.Flags().StringVarP(&zone, "dest-group", "d", "", "Destination group name")
 	hostCmd.Flags().StringVarP(&region, "region", "r", "", "Target region name")
-	hostCmd.Flags().StringVarP(&network, "network", "e", "", "Target network name")
+	hostCmd.Flags().StringVarP(&network, "network", "n", "", "Target network name")
 	hostCmd.MarkFlagRequired("dest-group")
 	hostCmd.MarkFlagRequired("region")
 	hostCmd.MarkFlagRequired("network")

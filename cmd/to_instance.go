@@ -9,17 +9,17 @@ import (
 
 var (
 	zone       string
-	iinterface string
+	ninterface string
 )
 
 var instanceCmd = &cobra.Command{
-	Use:  "instance",
+	Use:  "to-instance",
 	Long: "Create a tunnel to a remote Compute Engine instance",
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		opts := []iap.DialOption{
 			iap.WithProject(project),
-			iap.WithInstance(args[0], zone, iinterface),
+			iap.WithInstance(args[0], zone, ninterface),
 			iap.WithPort(fmt.Sprint(port)),
 		}
 		if compress {
@@ -32,7 +32,7 @@ var instanceCmd = &cobra.Command{
 
 func init() {
 	instanceCmd.Flags().StringVarP(&zone, "zone", "z", "", "Target zone name")
-	instanceCmd.Flags().StringVarP(&iinterface, "interface", "n", "nic0", "Target network interface")
+	instanceCmd.Flags().StringVarP(&ninterface, "interface", "i", "nic0", "Target network interface")
 	instanceCmd.MarkFlagRequired("zone")
 
 	rootCmd.AddCommand(instanceCmd)

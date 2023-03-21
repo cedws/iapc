@@ -43,7 +43,8 @@ func startProxy(opts []iap.DialOption) {
 func handleConn(opts []iap.DialOption, conn net.Conn) {
 	log.Info("Client connected", "client", conn.RemoteAddr())
 
-	tun, err := iap.Dial(context.Background(), getToken(), opts...)
+	opts = append(opts, iap.WithToken(getToken()))
+	tun, err := iap.Dial(context.Background(), opts...)
 	if err != nil {
 		log.Error(err)
 		return
@@ -78,7 +79,7 @@ func Execute() {
 func init() {
 	rootCmd.PersistentFlags().BoolVarP(&compress, "compress", "c", false, "Enable WebSocket compression")
 	rootCmd.PersistentFlags().StringVarP(&listen, "listen", "l", "127.0.0.1:0", "Listen address and port")
-	rootCmd.PersistentFlags().StringVarP(&project, "project", "p", "", "Project ID")
-	rootCmd.PersistentFlags().UintVarP(&port, "port", "o", 22, "Target port")
+	rootCmd.PersistentFlags().StringVar(&project, "project", "", "Project ID")
+	rootCmd.PersistentFlags().UintVarP(&port, "port", "p", 22, "Target port")
 	rootCmd.MarkFlagRequired("project")
 }

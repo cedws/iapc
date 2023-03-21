@@ -4,10 +4,14 @@ Alternative client and Go library for Google Cloud's Identity-Aware Proxy. This 
 ## Usage
 The CLI needs to acquire Application Default Credentials (ADC) to authenticate with the proxy, so make sure you're logged in.
 
-If you want to create a tunnel to an instance, use the `instance` subcommand.
+Here's an example of how to create a tunnel to an instance.
 
 ```sh
-$ iapc instance prod-1 --project analog-figure-330721 --zone europe-west2-c --listen 127.0.0.1:1337
+$ iapc to-instance prod-1 --project analog-figure-330721 --zone europe-west2-a
 ```
 
-If you want to create a tunnel to an IP or FQDN in a VPC, use the `host` subcommand. This requires BeyondCorp Enterprise and a TCP Destination Group.
+Here's an example of how to create a tunnel to a private IP or FQDN in a VPC. This requires BeyondCorp Enterprise and a TCP Destination Group.
+
+```sh
+$ iapc to-host prod-1 --project analog-figure-330721 --region europe-west2 --network prod --dest-group prod
+```
