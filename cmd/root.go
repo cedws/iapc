@@ -28,7 +28,6 @@ func startProxy(opts []iap.DialOption) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Info("Listening on TCP", "server", listener.Addr())
 
 	for {
 		conn, err := listener.Accept()

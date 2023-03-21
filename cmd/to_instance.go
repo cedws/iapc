@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/cedws/iapc/iap"
+	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 )
 
@@ -16,6 +17,9 @@ var instanceCmd = &cobra.Command{
 	Use:  "to-instance",
 	Long: "Create a tunnel to a remote Compute Engine instance",
 	Args: cobra.ExactArgs(1),
+	PreRun: func(cmd *cobra.Command, args []string) {
+		log.Info("Started proxy", "listen", listen, "dest", fmt.Sprintf("%v:%v", args[0], port), "project", project)
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		opts := []iap.DialOption{
 			iap.WithProject(project),
