@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/cedws/iapc/iap"
+	"github.com/cedws/iapc/proxy"
 	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 )
@@ -31,7 +32,7 @@ var hostCmd = &cobra.Command{
 			opts = append(opts, iap.WithCompression())
 		}
 
-		startProxy(opts)
+		proxy.Start(listen, opts)
 	},
 }
 
