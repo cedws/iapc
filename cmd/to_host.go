@@ -37,7 +37,7 @@ var hostCmd = &cobra.Command{
 }
 
 func init() {
-	hostCmd.Flags().StringVarP(&zone, "dest-group", "d", "", "Destination group name")
+	hostCmd.Flags().StringVarP(&destGroup, "dest-group", "d", "", "Destination group name")
 	hostCmd.Flags().StringVarP(&region, "region", "r", "", "Target region name")
 	hostCmd.Flags().StringVarP(&network, "network", "n", "", "Target network name")
 	hostCmd.MarkFlagRequired("dest-group")
