@@ -34,6 +34,7 @@ func min[T int | uint](a, b T) T {
 	return b
 }
 
+// copyNBuffer is like io.CopyN but stages through a given buffer like io.CopyBuffer.
 func copyNBuffer(w io.Writer, r io.Reader, n int64, buf []byte) (int64, error) {
 	return io.CopyBuffer(w, io.LimitReader(r, n), buf)
 }
@@ -42,19 +43,21 @@ type Conn struct {
 	conn      *websocket.Conn
 	sessionID []byte
 
-	recvAckedNb   uint64
-	recvUnackedNb uint64
+	recvNbAcked   uint64
+	recvNbUnacked uint64
 	recvBuf       []byte
 	recvReader    *io.PipeReader
 	recvWriter    *io.PipeWriter
 
-	sendNbCh   chan int
-	sendBuf    []byte
-	sendReader *io.PipeReader
-	sendWriter *io.PipeWriter
+	sendNbAcked   uint64
+	sendNbUnacked uint64
+	sendNbCh      chan int
+	sendBuf       []byte
+	sendReader    *io.PipeReader
+	sendWriter    *io.PipeWriter
 }
 
-func connectURL(dopts dialOptions) string {
+func connectURL(dopts *dialOptions) string {
 	query := url.Values{
 		"zone":      []string{dopts.Zone},
 		"region":    []string{dopts.Region},
@@ -65,6 +68,12 @@ func connectURL(dopts dialOptions) string {
 		"instance":  []string{dopts.Instance},
 		"host":      []string{dopts.Host},
 		"group":     []string{dopts.Group},
+	}
+
+	for key, value := range query {
+		if value[0] == "" {
+			query.Del(key)
+		}
 	}
 
 	url := url.URL{
@@ -79,10 +88,8 @@ func connectURL(dopts dialOptions) string {
 
 // Dial connects to the IAP proxy and returns a Conn or error if the connection fails.
 func Dial(ctx context.Context, opts ...DialOption) (*Conn, error) {
-	var dopts dialOptions
-	for _, opt := range opts {
-		opt(&dopts)
-	}
+	dopts := &dialOptions{}
+	dopts.collectOpts(opts)
 
 	wsOptions := websocket.DialOptions{
 		HTTPHeader: http.Header{
@@ -167,7 +174,7 @@ func (c *Conn) readSuccessFrame(buf [8]byte, r io.Reader) error {
 	}
 	len := binary.BigEndian.Uint32(buf[:4])
 	if len > subprotoMaxFrameSize {
-		panic("len exceeds subprotocol max data frame size")
+		return errors.New("len exceeds subprotocol max data frame size")
 	}
 
 	c.sessionID = make([]byte, len)
@@ -183,7 +190,12 @@ func (c *Conn) readAckFrame(buf [8]byte, r io.Reader) error {
 		return err
 	}
 
-	// binary.BigEndian.Uint64(buf[:8])
+	c.sendNbAcked = binary.BigEndian.Uint64(buf[:8])
+	if c.sendNbUnacked-c.sendNbAcked > 2*subprotoMaxFrameSize {
+		// protocol supports retransmission but this seems redundant since it's over TCP
+		return errors.New("proxy dropped too many bytes")
+	}
+
 	return nil
 }
 
@@ -193,13 +205,13 @@ func (c *Conn) readDataFrame(buf [8]byte, r io.Reader) error {
 	}
 	len := binary.BigEndian.Uint32(buf[:4])
 	if len > subprotoMaxFrameSize {
-		panic("len exceeds subprotocol max data frame size")
+		return errors.New("len exceeds subprotocol max data frame size")
 	}
 
 	if _, err := copyNBuffer(c.recvWriter, r, int64(len), c.recvBuf); err != nil {
 		return err
 	}
-	c.recvUnackedNb += uint64(len)
+	c.recvNbUnacked += uint64(len)
 
 	return nil
 }
@@ -228,11 +240,11 @@ func (c *Conn) readFrame(buf [8]byte) error {
 		err = c.readDataFrame(buf, reader)
 
 		// can the threshold be increased?
-		if c.recvUnackedNb-c.recvAckedNb > 2*subprotoMaxFrameSize {
-			if err := c.writeAck(c.recvUnackedNb); err != nil {
+		if c.recvNbUnacked-c.recvNbAcked > 2*subprotoMaxFrameSize {
+			if err := c.writeAck(c.recvNbUnacked); err != nil {
 				return err
 			}
-			c.recvAckedNb = c.recvUnackedNb
+			c.recvNbAcked = c.recvNbUnacked
 		}
 	default:
 		// unknown tags should be ignored
@@ -262,6 +274,7 @@ func (c *Conn) writeFrame() error {
 		}
 		writer.Close()
 
+		c.sendNbUnacked += uint64(nbLimit)
 		nb -= nbLimit
 	}
 

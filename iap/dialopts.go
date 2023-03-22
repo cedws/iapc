@@ -16,6 +16,12 @@ type dialOptions struct {
 	Compress  bool
 }
 
+func (d *dialOptions) collectOpts(opts []DialOption) {
+	for _, opt := range opts {
+		opt(d)
+	}
+}
+
 // WithToken is a functional option that sets the authorization token.
 func WithToken(token string) func(*dialOptions) {
 	return func(d *dialOptions) {
