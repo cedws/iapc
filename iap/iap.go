@@ -123,7 +123,7 @@ func Dial(ctx context.Context, opts ...DialOption) (*Conn, error) {
 		sendReader: sendReader,
 		sendWriter: sendWriter,
 	}
-	if err := c.readFrame([8]byte{}); err != nil {
+	if err := c.readFrame(); err != nil {
 		return nil, err
 	}
 
@@ -216,7 +216,9 @@ func (c *Conn) readDataFrame(buf [8]byte, r io.Reader) error {
 	return nil
 }
 
-func (c *Conn) readFrame(buf [8]byte) error {
+func (c *Conn) readFrame() error {
+	buf := [8]byte{}
+
 	_, reader, err := c.conn.Reader(context.Background())
 	if err != nil {
 		var closeError websocket.CloseError
@@ -255,7 +257,10 @@ func (c *Conn) readFrame(buf [8]byte) error {
 }
 
 func (c *Conn) writeFrame() error {
-	nb := <-c.sendNbCh
+	nb, ok := <-c.sendNbCh
+	if !ok {
+		return io.EOF
+	}
 
 	for nb > 0 {
 		// clamp each write to max frame size
@@ -282,10 +287,8 @@ func (c *Conn) writeFrame() error {
 }
 
 func (c *Conn) read() {
-	var buf [8]byte
-
 	for {
-		if err := c.readFrame(buf); err != nil {
+		if err := c.readFrame(); err != nil {
 			break
 		}
 	}
