@@ -10,6 +10,7 @@ import (
 	"golang.org/x/oauth2/google"
 )
 
+// Start starts a proxy server that listens on the given address and port.
 func Start(listen string, opts []iap.DialOption) {
 	listener, err := net.Listen("tcp", listen)
 	if err != nil {

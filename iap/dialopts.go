@@ -16,24 +16,28 @@ type dialOptions struct {
 	Compress  bool
 }
 
+// WithToken is a functional option that sets the authorization token.
 func WithToken(token string) func(*dialOptions) {
 	return func(d *dialOptions) {
 		d.Token = token
 	}
 }
 
+// WithCompression is a functional option that enables compression.
 func WithCompression() func(*dialOptions) {
 	return func(d *dialOptions) {
 		d.Compress = true
 	}
 }
 
+// WithProject is a functional option that sets the project ID.
 func WithProject(project string) func(*dialOptions) {
 	return func(d *dialOptions) {
 		d.Project = project
 	}
 }
 
+// WithInstance is a functional option that sets the instance, zone, and network interface.
 func WithInstance(instance, zone, ninterface string) func(*dialOptions) {
 	return func(d *dialOptions) {
 		d.Instance = instance
@@ -42,6 +46,7 @@ func WithInstance(instance, zone, ninterface string) func(*dialOptions) {
 	}
 }
 
+// WithHost is a functional option that sets the host, region, network, and destination group.
 func WithHost(host, region, network, destGroup string) func(*dialOptions) {
 	return func(d *dialOptions) {
 		d.Host = host
@@ -51,6 +56,7 @@ func WithHost(host, region, network, destGroup string) func(*dialOptions) {
 	}
 }
 
+// WithPort is a functional option that sets the destination port.
 func WithPort(port string) func(*dialOptions) {
 	return func(d *dialOptions) {
 		d.Port = port

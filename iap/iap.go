@@ -1,3 +1,4 @@
+// Package iap provides a client for the IAP tunneling protocol.
 package iap
 
 import (
@@ -76,6 +77,7 @@ func connectURL(dopts dialOptions) string {
 	return url.String()
 }
 
+// Dial connects to the IAP proxy and returns a Conn or error if the connection fails.
 func Dial(ctx context.Context, opts ...DialOption) (*Conn, error) {
 	var dopts dialOptions
 	for _, opt := range opts {
@@ -124,20 +126,24 @@ func Dial(ctx context.Context, opts ...DialOption) (*Conn, error) {
 	return c, nil
 }
 
+// Close closes the connection.
 func (c *Conn) Close() error {
 	close(c.sendNbCh)
 	return c.conn.Close(websocket.StatusNormalClosure, "Connection closed")
 }
 
+// Read reads data from the connection.
 func (c *Conn) Read(buf []byte) (n int, err error) {
 	return c.recvReader.Read(buf)
 }
 
+// Write writes data to the connection.
 func (c *Conn) Write(buf []byte) (n int, err error) {
 	c.sendNbCh <- len(buf)
 	return c.sendWriter.Write(buf)
 }
 
+// SessionID returns the session ID of the connection.
 func (c *Conn) SessionID() string {
 	return string(c.sessionID)
 }
