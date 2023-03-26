@@ -12,6 +12,11 @@ import (
 
 // Start starts a proxy server that listens on the given address and port.
 func Start(listen string, opts []iap.DialOption) {
+	opts = append(opts, iap.WithToken(getToken()))
+	if err := testConn(opts); err != nil {
+		log.Fatal(err)
+	}
+
 	listener, err := net.Listen("tcp", listen)
 	if err != nil {
 		log.Fatal(err)
@@ -23,14 +28,21 @@ func Start(listen string, opts []iap.DialOption) {
 			log.Fatal(err)
 		}
 
-		go handleConn(opts, conn)
+		go handleClient(opts, conn)
 	}
 }
 
-func handleConn(opts []iap.DialOption, conn net.Conn) {
+func testConn(opts []iap.DialOption) error {
+	tun, err := iap.Dial(context.Background(), opts...)
+	if tun != nil {
+		defer tun.Close()
+	}
+	return err
+}
+
+func handleClient(opts []iap.DialOption, conn net.Conn) {
 	log.Info("Client connected", "client", conn.RemoteAddr())
 
-	opts = append(opts, iap.WithToken(getToken()))
 	tun, err := iap.Dial(context.Background(), opts...)
 	if err != nil {
 		log.Error(err)
