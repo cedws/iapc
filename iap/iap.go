@@ -190,12 +190,10 @@ func (c *Conn) readAckFrame(buf [8]byte, r io.Reader) error {
 		return err
 	}
 
-	c.sendNbAcked = binary.BigEndian.Uint64(buf[:8])
-	if c.sendNbUnacked-c.sendNbAcked > 2*subprotoMaxFrameSize {
-		// protocol supports retransmission but this seems redundant since it's over TCP
-		return errors.New("proxy dropped too many bytes")
-	}
+	// TODO: should we transmit?
+	// since it's over TCP this seems redundant
 
+	c.sendNbAcked = binary.BigEndian.Uint64(buf[:8])
 	return nil
 }
 
