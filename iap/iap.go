@@ -155,6 +155,16 @@ func (c *Conn) SessionID() string {
 	return string(c.sessionID)
 }
 
+// Sent returns the number of bytes sent and acked.
+func (c *Conn) Sent() uint64 {
+	return c.sendNbAcked
+}
+
+// Received returns the number of bytes received and acked.
+func (c *Conn) Received() uint64 {
+	return c.recvNbAcked
+}
+
 func (c *Conn) writeAck(bytes uint64) error {
 	writer, err := c.conn.Writer(context.Background(), websocket.MessageBinary)
 	if err != nil {
