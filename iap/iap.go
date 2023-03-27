@@ -41,6 +41,7 @@ func copyNBuffer(w io.Writer, r io.Reader, n int64, buf []byte) (int64, error) {
 
 type Conn struct {
 	conn      *websocket.Conn
+	connected bool
 	sessionID []byte
 
 	recvNbAcked   uint64
@@ -192,6 +193,7 @@ func (c *Conn) readSuccessFrame(buf [8]byte, r io.Reader) error {
 		return err
 	}
 
+	c.connected = true
 	return nil
 }
 
@@ -244,21 +246,29 @@ func (c *Conn) readFrame() error {
 	switch tag {
 	case subprotoTagSuccess:
 		err = c.readSuccessFrame(buf, reader)
-	case subprotoTagAck:
-		err = c.readAckFrame(buf, reader)
-	case subprotoTagData:
-		err = c.readDataFrame(buf, reader)
-
-		// can the threshold be increased?
-		if c.recvNbUnacked-c.recvNbAcked > 2*subprotoMaxFrameSize {
-			if err := c.writeAck(c.recvNbUnacked); err != nil {
-				return err
-			}
-			c.recvNbAcked = c.recvNbUnacked
-		}
 	default:
-		// unknown tags should be ignored
-		return nil
+		if !c.connected {
+			return fmt.Errorf("Received frame before connection was established")
+		}
+
+		switch tag {
+		case subprotoTagAck:
+			err = c.readAckFrame(buf, reader)
+		case subprotoTagData:
+			err = c.readDataFrame(buf, reader)
+
+			// can the threshold be increased?
+			if c.recvNbUnacked-c.recvNbAcked > 2*subprotoMaxFrameSize {
+				if err := c.writeAck(c.recvNbUnacked); err != nil {
+					return err
+				}
+				c.recvNbAcked = c.recvNbUnacked
+			}
+		default:
+			// unknown tags should be ignored
+			return nil
+		}
+
 	}
 
 	return err
