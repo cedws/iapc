@@ -225,7 +225,7 @@ func (c *Conn) readFrame() error {
 		if errors.As(err, &closeError) {
 			return fmt.Errorf("Proxy closed connection with code %v, reason: %v", int(closeError.Code), closeError.Reason)
 		}
-		return closeError
+		return err
 	}
 
 	if _, err := reader.Read(buf[:2]); err != nil {
