@@ -185,7 +185,7 @@ func (c *Conn) readSuccessFrame(buf [8]byte, r io.Reader) error {
 	}
 	len := binary.BigEndian.Uint32(buf[:4])
 	if len > subprotoMaxFrameSize {
-		return errors.New("len exceeds subprotocol max data frame size")
+		return &ProtocolError{"len exceeds subprotocol max data frame size"}
 	}
 
 	c.sessionID = make([]byte, len)
@@ -215,7 +215,7 @@ func (c *Conn) readDataFrame(buf [8]byte, r io.Reader) error {
 	}
 	len := binary.BigEndian.Uint32(buf[:4])
 	if len > subprotoMaxFrameSize {
-		return errors.New("len exceeds subprotocol max data frame size")
+		return &ProtocolError{"len exceeds subprotocol max data frame size"}
 	}
 
 	if _, err := copyNBuffer(c.recvWriter, r, int64(len), c.recvBuf); err != nil {
@@ -233,7 +233,7 @@ func (c *Conn) readFrame() error {
 	if err != nil {
 		var closeError websocket.CloseError
 		if errors.As(err, &closeError) {
-			return fmt.Errorf("Proxy closed connection with code %v, reason: %v", int(closeError.Code), closeError.Reason)
+			return &ConnectionError{fmt.Sprintf("closed with code %v, reason: %v", int(closeError.Code), closeError.Reason)}
 		}
 		return err
 	}
@@ -248,7 +248,7 @@ func (c *Conn) readFrame() error {
 		err = c.readSuccessFrame(buf, reader)
 	default:
 		if !c.connected {
-			return fmt.Errorf("Received frame before connection was established")
+			return &ProtocolError{"received frame before connection was established"}
 		}
 
 		switch tag {
