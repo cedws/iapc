@@ -7,14 +7,12 @@ import (
 
 	"github.com/cedws/iapc/iap"
 	"github.com/charmbracelet/log"
-	"golang.org/x/oauth2/google"
 )
 
 // Start starts a proxy server that listens on the given address and port.
 func Start(listen string, opts []iap.DialOption) {
-	opts = append(opts, iap.WithToken(getToken()))
 	if err := testConn(opts); err != nil {
-		log.Fatal(err)
+		log.Fatalf("Error testing connection: %v", err)
 	}
 
 	listener, err := net.Listen("tcp", listen)
@@ -45,7 +43,7 @@ func handleClient(opts []iap.DialOption, conn net.Conn) {
 
 	tun, err := iap.Dial(context.Background(), opts...)
 	if err != nil {
-		log.Error(err)
+		log.Errorf("Error dialing IAP: %v", err)
 		return
 	}
 	defer tun.Close()
@@ -54,17 +52,5 @@ func handleClient(opts []iap.DialOption, conn net.Conn) {
 	go io.Copy(conn, tun)
 	io.Copy(tun, conn)
 
-	log.Info("Client disconnected", "client", conn.RemoteAddr())
-}
-
-func getToken() string {
-	credentials, err := google.FindDefaultCredentials(context.Background())
-	if err != nil {
-		log.Fatal(err)
-	}
-	tok, err := credentials.TokenSource.Token()
-	if err != nil {
-		log.Fatal(err)
-	}
-	return tok.AccessToken
+	log.Info("Client disconnected", "client", conn.RemoteAddr(), "sentbytes", tun.Sent(), "recvbytes", tun.Received())
 }

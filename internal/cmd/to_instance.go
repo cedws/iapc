@@ -26,6 +26,7 @@ var instanceCmd = &cobra.Command{
 			iap.WithProject(project),
 			iap.WithInstance(args[0], zone, ninterface),
 			iap.WithPort(fmt.Sprint(port)),
+			iap.WithTokenSource(getTokenSource()),
 		}
 		if compress {
 			opts = append(opts, iap.WithCompression())

@@ -1,19 +1,23 @@
 package iap
 
+import (
+	"golang.org/x/oauth2"
+)
+
 type DialOption func(*dialOptions)
 
 type dialOptions struct {
-	Zone      string
-	Token     string
-	Region    string
-	Project   string
-	Port      string
-	Network   string
-	Interface string
-	Instance  string
-	Host      string
-	Group     string
-	Compress  bool
+	Zone        string
+	TokenSource *oauth2.TokenSource
+	Region      string
+	Project     string
+	Port        string
+	Network     string
+	Interface   string
+	Instance    string
+	Host        string
+	Group       string
+	Compress    bool
 }
 
 func (d *dialOptions) collectOpts(opts []DialOption) {
@@ -22,10 +26,10 @@ func (d *dialOptions) collectOpts(opts []DialOption) {
 	}
 }
 
-// WithToken is a functional option that sets the authorization token.
-func WithToken(token string) func(*dialOptions) {
+// WithTokenSource is a functional option that sets the authorization toke source.
+func WithTokenSource(tokenSource *oauth2.TokenSource) func(*dialOptions) {
 	return func(d *dialOptions) {
-		d.Token = token
+		d.TokenSource = tokenSource
 	}
 }
 

@@ -92,11 +92,20 @@ func Dial(ctx context.Context, opts ...DialOption) (*Conn, error) {
 	dopts := &dialOptions{}
 	dopts.collectOpts(opts)
 
+	header := make(http.Header)
+	header.Set("Origin", proxyOrigin)
+
+	if dopts.TokenSource != nil {
+		token, err := (*dopts.TokenSource).Token()
+		if err != nil {
+			return nil, err
+		}
+
+		header.Set("Authorization", fmt.Sprintf("%v %v", token.Type(), token.AccessToken))
+	}
+
 	wsOptions := websocket.DialOptions{
-		HTTPHeader: http.Header{
-			"Authorization": []string{fmt.Sprintf("Bearer %v", dopts.Token)},
-			"Origin":        []string{proxyOrigin},
-		},
+		HTTPHeader:      header,
 		Subprotocols:    []string{proxySubproto},
 		CompressionMode: websocket.CompressionDisabled,
 	}
