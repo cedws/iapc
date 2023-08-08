@@ -2,12 +2,13 @@ package iap
 
 import "fmt"
 
-type ConnectionError struct {
-	Err string
+type CloseError struct {
+	Code   int
+	Reason string
 }
 
-func (e *ConnectionError) Error() string {
-	return fmt.Sprintf("connection error: %v", e.Err)
+func (e *CloseError) Error() string {
+	return fmt.Sprintf("connection closed: code %v (%v)", e.Code, e.Reason)
 }
 
 type ProtocolError struct {

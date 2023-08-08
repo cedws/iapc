@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -140,6 +141,11 @@ func Dial(ctx context.Context, opts ...DialOption) (*Conn, error) {
 		sendWriter: sendWriter,
 	}
 	if err := c.readFrame(); err != nil {
+		var closeError websocket.CloseError
+		if errors.As(err, &closeError) {
+			return nil, &CloseError{int(closeError.Code), closeError.Reason}
+		}
+
 		return nil, err
 	}
 
