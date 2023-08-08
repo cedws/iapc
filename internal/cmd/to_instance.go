@@ -19,7 +19,7 @@ var instanceCmd = &cobra.Command{
 	Long: "Create a tunnel to a remote Compute Engine instance",
 	Args: cobra.ExactArgs(1),
 	PreRun: func(cmd *cobra.Command, args []string) {
-		log.Info("Started proxy", "listen", listen, "dest", fmt.Sprintf("%v:%v", args[0], port), "project", project)
+		log.Info("Starting proxy", "dest", fmt.Sprintf("%v:%v", args[0], port), "project", project)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		opts := []iap.DialOption{

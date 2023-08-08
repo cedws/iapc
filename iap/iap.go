@@ -2,16 +2,20 @@
 package iap
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
+	"time"
 
 	"nhooyr.io/websocket"
 )
+
+var _ net.Conn = (*Conn)(nil)
 
 const (
 	proxySubproto = "relay.tunnel.cloudproxy.app"
@@ -40,7 +44,7 @@ func copyNBuffer(w io.Writer, r io.Reader, n int64, buf []byte) (int64, error) {
 }
 
 type Conn struct {
-	conn      *websocket.Conn
+	conn      net.Conn
 	connected bool
 	sessionID []byte
 
@@ -118,11 +122,13 @@ func Dial(ctx context.Context, opts ...DialOption) (*Conn, error) {
 		return nil, err
 	}
 
+	netConn := websocket.NetConn(context.Background(), conn, websocket.MessageBinary)
+
 	recvReader, recvWriter := io.Pipe()
 	sendReader, sendWriter := io.Pipe()
 
 	c := &Conn{
-		conn: conn,
+		conn: netConn,
 
 		recvBuf:    make([]byte, subprotoMaxFrameSize),
 		recvReader: recvReader,
@@ -143,10 +149,35 @@ func Dial(ctx context.Context, opts ...DialOption) (*Conn, error) {
 	return c, nil
 }
 
+// LocalAddr returns the local network address.
+func (c *Conn) LocalAddr() net.Addr {
+	return c.conn.LocalAddr()
+}
+
+// RemoteAddr returns the remote network address.
+func (c *Conn) RemoteAddr() net.Addr {
+	return c.conn.RemoteAddr()
+}
+
+// SetDeadline sets the read and write deadlines associated with the connection.
+func (c *Conn) SetDeadline(t time.Time) error {
+	return c.conn.SetDeadline(t)
+}
+
+// SetReadDeadline sets the deadline for future Read calls.
+func (c *Conn) SetReadDeadline(t time.Time) error {
+	return c.conn.SetReadDeadline(t)
+}
+
+// SetWriteDeadline sets the deadline for future Write calls.
+func (c *Conn) SetWriteDeadline(t time.Time) error {
+	return c.conn.SetWriteDeadline(t)
+}
+
 // Close closes the connection.
 func (c *Conn) Close() error {
 	close(c.sendNbCh)
-	return c.conn.Close(websocket.StatusNormalClosure, "Connection closed")
+	return c.conn.Close()
 }
 
 // Read reads data from the connection.
@@ -175,24 +206,23 @@ func (c *Conn) Received() uint64 {
 	return c.recvNbAcked
 }
 
-func (c *Conn) writeAck(bytes uint64) error {
-	writer, err := c.conn.Writer(context.Background(), websocket.MessageBinary)
-	if err != nil {
-		return err
-	}
-	defer writer.Close()
+func (c *Conn) writeAck(nb uint64) error {
+	buf := make([]byte, 10)
 
-	binary.Write(writer, binary.BigEndian, subprotoTagAck)
-	binary.Write(writer, binary.BigEndian, bytes)
+	binary.LittleEndian.PutUint16(buf[0:2], subprotoTagAck)
+	binary.LittleEndian.PutUint64(buf[2:10], nb)
 
-	return nil
+	_, err := c.conn.Write(buf)
+	return err
 }
 
-func (c *Conn) readSuccessFrame(buf [8]byte, r io.Reader) error {
-	if _, err := r.Read(buf[:4]); err != nil {
+func (c *Conn) readSuccessFrame(r io.Reader) error {
+	bytes := [4]byte{}
+	if _, err := r.Read(bytes[:]); err != nil {
 		return err
 	}
-	len := binary.BigEndian.Uint32(buf[:4])
+	len := binary.BigEndian.Uint32(bytes[:])
+
 	if len > subprotoMaxFrameSize {
 		return &ProtocolError{"len exceeds subprotocol max data frame size"}
 	}
@@ -206,23 +236,26 @@ func (c *Conn) readSuccessFrame(buf [8]byte, r io.Reader) error {
 	return nil
 }
 
-func (c *Conn) readAckFrame(buf [8]byte, r io.Reader) error {
-	if _, err := r.Read(buf[:8]); err != nil {
+func (c *Conn) readAckFrame(r io.Reader) error {
+	bytes := [8]byte{}
+	if _, err := r.Read(bytes[:]); err != nil {
 		return err
 	}
 
 	// TODO: should we transmit?
 	// since it's over TCP this seems redundant
 
-	c.sendNbAcked = binary.BigEndian.Uint64(buf[:8])
+	c.sendNbAcked = binary.BigEndian.Uint64(bytes[:])
 	return nil
 }
 
-func (c *Conn) readDataFrame(buf [8]byte, r io.Reader) error {
-	if _, err := r.Read(buf[:4]); err != nil {
+func (c *Conn) readDataFrame(r io.Reader) error {
+	bytes := [4]byte{}
+	if _, err := r.Read(bytes[:]); err != nil {
 		return err
 	}
-	len := binary.BigEndian.Uint32(buf[:4])
+	len := binary.BigEndian.Uint32(bytes[:])
+
 	if len > subprotoMaxFrameSize {
 		return &ProtocolError{"len exceeds subprotocol max data frame size"}
 	}
@@ -230,31 +263,23 @@ func (c *Conn) readDataFrame(buf [8]byte, r io.Reader) error {
 	if _, err := copyNBuffer(c.recvWriter, r, int64(len), c.recvBuf); err != nil {
 		return err
 	}
-	c.recvNbUnacked += uint64(len)
 
+	c.recvNbUnacked += uint64(len)
 	return nil
 }
 
 func (c *Conn) readFrame() error {
-	buf := [8]byte{}
-
-	_, reader, err := c.conn.Reader(context.Background())
-	if err != nil {
-		var closeError websocket.CloseError
-		if errors.As(err, &closeError) {
-			return &ConnectionError{fmt.Sprintf("closed with code %v, reason: %v", int(closeError.Code), closeError.Reason)}
-		}
+	bytes := [2]byte{}
+	if _, err := c.conn.Read(bytes[:]); err != nil {
 		return err
 	}
+	tag := binary.BigEndian.Uint16(bytes[:])
 
-	if _, err := reader.Read(buf[:2]); err != nil {
-		return err
-	}
-	tag := binary.BigEndian.Uint16(buf[:2])
+	var err error
 
 	switch tag {
 	case subprotoTagSuccess:
-		err = c.readSuccessFrame(buf, reader)
+		err = c.readSuccessFrame(c.conn)
 	default:
 		if !c.connected {
 			return &ProtocolError{"received frame before connection was established"}
@@ -262,9 +287,9 @@ func (c *Conn) readFrame() error {
 
 		switch tag {
 		case subprotoTagAck:
-			err = c.readAckFrame(buf, reader)
+			err = c.readAckFrame(c.conn)
 		case subprotoTagData:
-			err = c.readDataFrame(buf, reader)
+			err = c.readDataFrame(c.conn)
 
 			// can the threshold be increased?
 			if c.recvNbUnacked-c.recvNbAcked > 2*subprotoMaxFrameSize {
@@ -291,23 +316,24 @@ func (c *Conn) writeFrame() error {
 
 	for nb > 0 {
 		// clamp each write to max frame size
-		nbLimit := min(nb, subprotoMaxFrameSize)
+		writeNb := min(nb, subprotoMaxFrameSize)
+		nb -= writeNb
 
-		writer, err := c.conn.Writer(context.Background(), websocket.MessageBinary)
+		var buf bytes.Buffer
+
+		binary.Write(&buf, binary.BigEndian, subprotoTagData)
+		binary.Write(&buf, binary.BigEndian, uint32(writeNb))
+
+		if _, err := copyNBuffer(&buf, c.sendReader, int64(writeNb), c.sendBuf); err != nil {
+			return err
+		}
+
+		writtenNb, err := c.conn.Write(buf.Bytes())
 		if err != nil {
 			return err
 		}
 
-		binary.Write(writer, binary.BigEndian, subprotoTagData)
-		binary.Write(writer, binary.BigEndian, uint32(nbLimit))
-
-		if _, err := copyNBuffer(writer, c.sendReader, int64(nbLimit), c.sendBuf); err != nil {
-			return err
-		}
-		writer.Close()
-
-		c.sendNbUnacked += uint64(nbLimit)
-		nb -= nbLimit
+		c.sendNbUnacked += uint64(writtenNb)
 	}
 
 	return nil

@@ -20,6 +20,8 @@ func Start(listen string, opts []iap.DialOption) {
 		log.Fatal(err)
 	}
 
+	log.Info("Listening", "addr", listener.Addr())
+
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
