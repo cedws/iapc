@@ -10,6 +10,7 @@ import (
 )
 
 var (
+	debug    bool
 	compress bool
 	listen   string
 	project  string
@@ -19,9 +20,14 @@ var (
 var rootCmd = &cobra.Command{
 	Use:  "iapc",
 	Long: "Utility for Google Cloud's Identity-Aware Proxy",
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		if debug {
+			log.SetLevel(log.DebugLevel)
+		}
+	},
 }
 
-func getTokenSource() *oauth2.TokenSource {
+func tokenSource() *oauth2.TokenSource {
 	tokenSource, err := google.DefaultTokenSource(context.Background())
 	if err != nil {
 		log.Fatal(err)
@@ -30,6 +36,7 @@ func getTokenSource() *oauth2.TokenSource {
 }
 
 func init() {
+	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Enable debug logging")
 	rootCmd.PersistentFlags().BoolVarP(&compress, "compress", "c", false, "Enable WebSocket compression")
 	rootCmd.PersistentFlags().StringVarP(&listen, "listen", "l", "127.0.0.1:0", "Listen address and port")
 	rootCmd.PersistentFlags().StringVar(&project, "project", "", "Project ID")
