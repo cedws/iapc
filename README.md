@@ -14,7 +14,7 @@ flowchart LR
     end
 ```
 
-## Usage
+## CLI
 The CLI needs to acquire Application Default Credentials (ADC) to authenticate with the proxy, so make sure you're logged in.
 
 Here's an example of how to create a tunnel to an instance.
@@ -27,4 +27,48 @@ Here's an example of how to create a tunnel to a private IP or FQDN in a VPC. Th
 
 ```sh
 $ iapc to-host 192.168.0.1 --project analog-figure-330721 --region europe-west2 --network prod --dest-group prod
+```
+
+## Example
+This code example wires stdin/stdout to a port 8080 TCP connection on an instance. Run `nc -l 0.0.0.0 8080` on the instance to observe bidirectional communication.
+
+Note that your VPC will need a firewall rule to allow traffic to the instance on the desired port (in this case 8080) from the well known IAP range 35.235.240.0/20. See [Using IAP for TCP Forwarding](https://cloud.google.com/iap/docs/using-tcp-forwarding) for more information.
+
+```go
+package main
+
+import (
+	"context"
+	"io"
+	"log"
+	"os"
+
+	"github.com/cedws/iapc/iap"
+	"golang.org/x/oauth2/google"
+)
+
+func main() {
+	tokenSource, err := google.DefaultTokenSource(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	opts := []iap.DialOption{
+		iap.WithProject("analog-figure-330721"),
+		iap.WithInstance("prod-1", "europe-west2-a", "nic0"),
+		iap.WithPort("8080"),
+		iap.WithTokenSource(&tokenSource),
+	}
+
+	tun, err := iap.Dial(context.Background(), opts...)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer tun.Close()
+
+	log.Println("Connected!")
+
+	go io.Copy(tun, os.Stdout)
+	io.Copy(os.Stdin, tun)
+}
 ```
