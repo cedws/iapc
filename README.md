@@ -72,3 +72,6 @@ func main() {
 	io.Copy(os.Stdin, tun)
 }
 ```
+
+## License
+This project is licensed under your choice of MIT or GPLv3.
