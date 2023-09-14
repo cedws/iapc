@@ -215,8 +215,8 @@ func (c *Conn) Received() uint64 {
 func (c *Conn) writeAck(nb uint64) error {
 	buf := make([]byte, 10)
 
-	binary.LittleEndian.PutUint16(buf[0:2], subprotoTagAck)
-	binary.LittleEndian.PutUint64(buf[2:10], nb)
+	binary.BigEndian.PutUint16(buf[0:2], subprotoTagAck)
+	binary.BigEndian.PutUint64(buf[2:10], nb)
 
 	_, err := c.conn.Write(buf)
 	return err
