@@ -17,22 +17,30 @@ flowchart LR
 ## CLI
 The CLI needs to acquire Application Default Credentials (ADC) to authenticate with the proxy, so make sure you're logged in.
 
+```sh
+$ gcloud auth login --update-adc
+```
+
+> [!IMPORTANT]
+> Your VPC will need a firewall rule to allow traffic to the instance on the desired port (in this case 8080) from the well-known IAP range 35.235.240.0/20. See [Using IAP for TCP Forwarding](https://cloud.google.com/iap/docs/using-tcp-forwarding) for more information.
+
 Here's an example of how to create a tunnel to an instance.
 
 ```sh
 $ iapc to-instance prod-1 --project analog-figure-330721 --zone europe-west2-a
 ```
 
-Here's an example of how to create a tunnel to a private IP or FQDN in a VPC. This requires BeyondCorp Enterprise and a TCP Destination Group.
+Here's an example of how to create a tunnel to a private IP or FQDN in a VPC. This **requires** BeyondCorp Enterprise and a TCP Destination Group.
 
 ```sh
 $ iapc to-host 192.168.0.1 --project analog-figure-330721 --region europe-west2 --network prod --dest-group prod
 ```
 
-## Example
+## Example Code
 This code example wires stdin/stdout to a port 8080 TCP connection on an instance. Run `nc -l 0.0.0.0 8080` on the instance to observe bidirectional communication.
 
-Note that your VPC will need a firewall rule to allow traffic to the instance on the desired port (in this case 8080) from the well known IAP range 35.235.240.0/20. See [Using IAP for TCP Forwarding](https://cloud.google.com/iap/docs/using-tcp-forwarding) for more information.
+> [!IMPORTANT]
+> Your VPC will need a firewall rule to allow traffic to the instance on the desired port (in this case 8080) from the well-known IAP range 35.235.240.0/20. See [Using IAP for TCP Forwarding](https://cloud.google.com/iap/docs/using-tcp-forwarding) for more information.
 
 ```go
 package main
