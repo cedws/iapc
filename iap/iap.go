@@ -140,14 +140,6 @@ func Dial(ctx context.Context, opts ...DialOption) (*Conn, error) {
 		sendReader: sendReader,
 		sendWriter: sendWriter,
 	}
-	if err := c.readFrame(); err != nil {
-		var closeError websocket.CloseError
-		if errors.As(err, &closeError) {
-			return nil, &CloseError{int(closeError.Code), closeError.Reason}
-		}
-
-		return nil, err
-	}
 
 	go c.read()
 	go c.write()
@@ -197,7 +189,12 @@ func (c *Conn) Write(buf []byte) (n int, err error) {
 	return c.sendWriter.Write(buf)
 }
 
-// SessionID returns the session ID of the connection.
+// Connected returns whether the connection is established.
+func (c *Conn) Connected() bool {
+	return c.connected
+}
+
+// SessionID returns the session ID of the connection. This is only valid after the connection is established.
 func (c *Conn) SessionID() string {
 	return string(c.sessionID)
 }
@@ -212,16 +209,6 @@ func (c *Conn) Received() uint64 {
 	return c.recvNbAcked
 }
 
-func (c *Conn) writeAck(nb uint64) error {
-	buf := make([]byte, 10)
-
-	binary.BigEndian.PutUint16(buf[0:2], subprotoTagAck)
-	binary.BigEndian.PutUint64(buf[2:10], nb)
-
-	_, err := c.conn.Write(buf)
-	return err
-}
-
 func (c *Conn) readSuccessFrame(r io.Reader) error {
 	bytes := [4]byte{}
 	if _, err := r.Read(bytes[:]); err != nil {
@@ -234,12 +221,23 @@ func (c *Conn) readSuccessFrame(r io.Reader) error {
 	}
 
 	c.sessionID = make([]byte, len)
-	if _, err := r.Read([]byte(c.sessionID)); err != nil {
+	if _, err := r.Read(c.sessionID); err != nil {
 		return err
 	}
 
 	c.connected = true
 	return nil
+}
+
+func (c *Conn) writeAck(nb uint64) error {
+	// allocation fine, cold path
+	buf := make([]byte, 10)
+
+	binary.BigEndian.PutUint16(buf[0:2], subprotoTagAck)
+	binary.BigEndian.PutUint64(buf[2:10], nb)
+
+	_, err := c.conn.Write(buf)
+	return err
 }
 
 func (c *Conn) readAckFrame(r io.Reader) error {
@@ -288,7 +286,7 @@ func (c *Conn) readFrame() error {
 		err = c.readSuccessFrame(c.conn)
 	default:
 		if !c.connected {
-			return &ProtocolError{"received frame before connection was established"}
+			return &ProtocolError{"expected success frame but not did receive one"}
 		}
 
 		switch tag {
@@ -317,6 +315,7 @@ func (c *Conn) readFrame() error {
 func (c *Conn) writeFrame() error {
 	nb, ok := <-c.sendNbCh
 	if !ok {
+		// connection is closing
 		return io.EOF
 	}
 
@@ -348,6 +347,15 @@ func (c *Conn) writeFrame() error {
 func (c *Conn) read() {
 	for {
 		if err := c.readFrame(); err != nil {
+			var closeError websocket.CloseError
+			if errors.As(err, &closeError) {
+				err = &CloseError{int(closeError.Code), closeError.Reason}
+			}
+
+			// close write side of pipes only
+			c.sendWriter.CloseWithError(err)
+			c.recvWriter.CloseWithError(err)
+
 			break
 		}
 	}
@@ -356,6 +364,15 @@ func (c *Conn) read() {
 func (c *Conn) write() {
 	for {
 		if err := c.writeFrame(); err != nil {
+			var closeError websocket.CloseError
+			if errors.As(err, &closeError) {
+				err = &CloseError{int(closeError.Code), closeError.Reason}
+			}
+
+			// close write side of pipes only
+			c.sendWriter.CloseWithError(err)
+			c.recvWriter.CloseWithError(err)
+
 			break
 		}
 	}
