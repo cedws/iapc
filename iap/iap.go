@@ -209,6 +209,11 @@ func (c *Conn) Received() uint64 {
 	return c.recvNbAcked
 }
 
+func (c *Conn) closeWriters(err error) {
+	c.sendWriter.CloseWithError(err)
+	c.recvWriter.CloseWithError(err)
+}
+
 func (c *Conn) readSuccessFrame(r io.Reader) error {
 	bytes := [4]byte{}
 	if _, err := r.Read(bytes[:]); err != nil {
@@ -352,10 +357,7 @@ func (c *Conn) read() {
 				err = &CloseError{int(closeError.Code), closeError.Reason}
 			}
 
-			// close write side of pipes only
-			c.sendWriter.CloseWithError(err)
-			c.recvWriter.CloseWithError(err)
-
+			c.closeWriters(err)
 			break
 		}
 	}
@@ -369,10 +371,7 @@ func (c *Conn) write() {
 				err = &CloseError{int(closeError.Code), closeError.Reason}
 			}
 
-			// close write side of pipes only
-			c.sendWriter.CloseWithError(err)
-			c.recvWriter.CloseWithError(err)
-
+			c.closeWriters(err)
 			break
 		}
 	}

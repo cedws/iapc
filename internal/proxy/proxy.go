@@ -52,10 +52,16 @@ func handleClient(opts []iap.DialOption, conn net.Conn) {
 	}
 	defer tun.Close()
 
-	log.Debug("Dialed IAP", "client", conn.RemoteAddr(), "sid", tun.SessionID())
+	log.Debug("Dialed IAP", "client", conn.RemoteAddr())
 
-	go io.Copy(conn, tun)
-	io.Copy(tun, conn)
+	go func() {
+		if _, err := io.Copy(conn, tun); err != nil {
+			log.Debug(err)
+		}
+	}()
+	if _, err := io.Copy(tun, conn); err != nil {
+		log.Debug(err)
+	}
 
 	log.Info("Client disconnected", "client", conn.RemoteAddr(), "sentbytes", tun.Sent(), "recvbytes", tun.Received())
 }
