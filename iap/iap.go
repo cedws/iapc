@@ -116,7 +116,7 @@ func Dial(ctx context.Context, opts ...DialOption) (*Conn, error) {
 		return nil, err
 	}
 
-	netConn := websocket.NetConn(context.Background(), conn, websocket.MessageBinary)
+	netConn := websocket.NetConn(ctx, conn, websocket.MessageBinary)
 
 	recvReader, recvWriter := io.Pipe()
 	sendReader, sendWriter := io.Pipe()

@@ -9,9 +9,9 @@ import (
 	"github.com/charmbracelet/log"
 )
 
-// Start starts a proxy server that listens on the given address and port.
-func Start(listen string, opts []iap.DialOption) {
-	if err := testConn(opts); err != nil {
+// Listen starts a proxy server that listens on the given address and port.
+func Listen(ctx context.Context, listen string, opts []iap.DialOption) {
+	if err := testConn(ctx, opts); err != nil {
 		log.Fatalf("Error testing connection: %v", err)
 	}
 
@@ -28,22 +28,22 @@ func Start(listen string, opts []iap.DialOption) {
 			log.Fatal(err)
 		}
 
-		go handleClient(opts, conn)
+		go handleClient(ctx, opts, conn)
 	}
 }
 
-func testConn(opts []iap.DialOption) error {
-	tun, err := iap.Dial(context.Background(), opts...)
+func testConn(ctx context.Context, opts []iap.DialOption) error {
+	tun, err := iap.Dial(ctx, opts...)
 	if tun != nil {
 		defer tun.Close()
 	}
 	return err
 }
 
-func handleClient(opts []iap.DialOption, conn net.Conn) {
+func handleClient(ctx context.Context, opts []iap.DialOption, conn net.Conn) {
 	log.Debug("Client connected", "client", conn.RemoteAddr())
 
-	tun, err := iap.Dial(context.Background(), opts...)
+	tun, err := iap.Dial(ctx, opts...)
 	if err != nil {
 		log.Errorf("Error dialing IAP: %v", err)
 		return

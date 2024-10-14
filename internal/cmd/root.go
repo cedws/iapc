@@ -1,12 +1,8 @@
 package cmd
 
 import (
-	"context"
-
 	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 )
 
 var (
@@ -26,14 +22,6 @@ var rootCmd = &cobra.Command{
 			log.SetLevel(log.DebugLevel)
 		}
 	},
-}
-
-func tokenSource() *oauth2.TokenSource {
-	tokenSource, err := google.DefaultTokenSource(context.Background(), tokenScopes...)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return &tokenSource
 }
 
 func init() {
