@@ -10,11 +10,12 @@ import (
 )
 
 var (
-	debug    bool
-	compress bool
-	listen   string
-	project  string
-	port     uint
+	debug       bool
+	compress    bool
+	listen      string
+	project     string
+	port        uint
+	tokenScopes []string
 )
 
 var rootCmd = &cobra.Command{
@@ -28,7 +29,7 @@ var rootCmd = &cobra.Command{
 }
 
 func tokenSource() *oauth2.TokenSource {
-	tokenSource, err := google.DefaultTokenSource(context.Background())
+	tokenSource, err := google.DefaultTokenSource(context.Background(), tokenScopes...)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -41,6 +42,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&listen, "listen", "l", "127.0.0.1:0", "Listen address and port")
 	rootCmd.PersistentFlags().StringVar(&project, "project", "", "Project ID")
 	rootCmd.PersistentFlags().UintVarP(&port, "port", "p", 22, "Target port")
+	rootCmd.PersistentFlags().StringSliceVarP(&tokenScopes, "token-scopes", "s", []string{"https://www.googleapis.com/auth/cloud-platform"}, "Token scopes")
 	rootCmd.MarkFlagRequired("project")
 }
 
