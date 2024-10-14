@@ -41,7 +41,7 @@ func testConn(ctx context.Context, opts []iap.DialOption) error {
 }
 
 func handleClient(ctx context.Context, opts []iap.DialOption, conn net.Conn) {
-	log.Debug("Client connected", "client", conn.RemoteAddr())
+	log.Info("Client connected", "client", conn.RemoteAddr())
 
 	tun, err := iap.Dial(ctx, opts...)
 	if err != nil {
@@ -61,5 +61,5 @@ func handleClient(ctx context.Context, opts []iap.DialOption, conn net.Conn) {
 		log.Debug(err)
 	}
 
-	log.Debug("Client disconnected", "client", conn.RemoteAddr(), "sentbytes", tun.Sent(), "recvbytes", tun.Received())
+	log.Info("Client disconnected", "client", conn.RemoteAddr(), "sentbytes", tun.Sent(), "recvbytes", tun.Received())
 }
