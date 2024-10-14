@@ -13,7 +13,7 @@ import (
 	"net/url"
 	"time"
 
-	"nhooyr.io/websocket"
+	"github.com/coder/websocket"
 )
 
 var _ net.Conn = (*Conn)(nil)
