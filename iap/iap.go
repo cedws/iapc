@@ -32,13 +32,6 @@ const (
 	subprotoTagAck       uint16 = 0x7
 )
 
-func min[T int | uint](a, b T) T {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 // copyNBuffer is like io.CopyN but stages through a given buffer like io.CopyBuffer.
 func copyNBuffer(w io.Writer, r io.Reader, n int64, buf []byte) (int64, error) {
 	return io.CopyBuffer(w, io.LimitReader(r, n), buf)
