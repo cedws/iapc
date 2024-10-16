@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/coder/websocket"
@@ -54,6 +55,8 @@ type Conn struct {
 	sendBuf       []byte
 	sendReader    *io.PipeReader
 	sendWriter    *io.PipeWriter
+
+	closeOnceFunc func()
 }
 
 func connectURL(dopts *dialOptions) string {
@@ -133,6 +136,9 @@ func Dial(ctx context.Context, opts ...DialOption) (*Conn, error) {
 		sendReader: sendReader,
 		sendWriter: sendWriter,
 	}
+	c.closeOnceFunc = sync.OnceFunc(func() {
+		close(c.sendNbCh)
+	})
 
 	go c.read()
 	go c.write()
@@ -167,7 +173,7 @@ func (c *Conn) SetWriteDeadline(t time.Time) error {
 
 // Close closes the connection.
 func (c *Conn) Close() error {
-	close(c.sendNbCh)
+	c.closeOnceFunc()
 	return c.conn.Close()
 }
 
