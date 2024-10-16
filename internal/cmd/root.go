@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	debug       bool
+	logLevel    string
 	compress    bool
 	listen      string
 	project     string
@@ -18,14 +18,16 @@ var rootCmd = &cobra.Command{
 	Use:  "iapc",
 	Long: "Utility for Google Cloud's Identity-Aware Proxy",
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		if debug {
-			log.SetLevel(log.DebugLevel)
+		level, err := log.ParseLevel(logLevel)
+		if err != nil {
+			log.Warnf("could not set log level to %s, please use one of: {debug|info|warn|error|fatal}", logLevel)
 		}
+		log.SetLevel(level)
 	},
 }
 
 func init() {
-	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Enable debug logging")
+	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "Set log level")
 	rootCmd.PersistentFlags().BoolVarP(&compress, "compress", "c", false, "Enable WebSocket compression")
 	rootCmd.PersistentFlags().StringVarP(&listen, "listen", "l", "127.0.0.1:0", "Listen address and port")
 	rootCmd.PersistentFlags().StringVar(&project, "project", "", "Project ID")
