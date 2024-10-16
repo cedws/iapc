@@ -20,7 +20,7 @@ var rootCmd = &cobra.Command{
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		level, err := log.ParseLevel(logLevel)
 		if err != nil {
-			log.Warnf("could not set log level to %s, please use one of: {debug|info|warn|error|fatal}", logLevel)
+			log.Warnf("Could not set log level to %s, use one of: {debug|info|warn|error|fatal}", logLevel)
 		}
 		log.SetLevel(level)
 	},
