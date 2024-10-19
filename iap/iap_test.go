@@ -1,13 +1,40 @@
 package iap
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"log"
 	"net"
+	"net/http"
 	"testing"
+	"time"
 
+	"github.com/coder/websocket"
 	"github.com/stretchr/testify/assert"
 )
+
+var testData = []byte("hello")
+
+var wsListener net.Listener
+
+func wsUpgradeHandler(w http.ResponseWriter, r *http.Request) {
+	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+		Subprotocols: []string{proxySubproto},
+	})
+	if err != nil {
+		panic(err)
+	}
+	defer conn.CloseNow()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	conn.Write(ctx, websocket.MessageBinary, makeSuccessFrame(randomString()))
+	conn.Write(ctx, websocket.MessageBinary, makeDataFrame(testData))
+
+	conn.Close(websocket.StatusNormalClosure, "")
+}
 
 func randomString() string {
 	buf := make([]byte, 16)
@@ -15,6 +42,24 @@ func randomString() string {
 		panic("failed to make random string")
 	}
 	return hex.EncodeToString(buf)
+}
+
+func TestMain(m *testing.M) {
+	// websocket library rejects non-URL origins, need to override
+	proxyOrigin = ""
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", wsUpgradeHandler)
+
+	var err error
+
+	wsListener, err = net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		log.Fatal(err)
+	}
+	go http.Serve(wsListener, mux)
+
+	m.Run()
 }
 
 func TestSuccessFrame(t *testing.T) {
@@ -54,6 +99,23 @@ func TestConn(t *testing.T) {
 }
 
 func TestRead(t *testing.T) {
+	t.Run("E2E Read", func(t *testing.T) {
+		conn, err := dial(context.Background(), "ws://"+wsListener.Addr().String())
+		assert.NoError(t, err)
+		defer func() {
+			assert.NoError(t, conn.Close())
+		}()
+
+		buf := make([]byte, len(testData))
+		_, err = conn.Read(buf)
+
+		assert.NoError(t, err)
+		assert.Equal(t, testData, buf)
+
+		assert.True(t, conn.Connected())
+		assert.NotEmpty(t, conn.SessionID())
+	})
+
 	t.Run("Without ACK", func(t *testing.T) {
 		r, w := net.Pipe()
 
@@ -67,16 +129,17 @@ func TestRead(t *testing.T) {
 		assert.False(t, conn.Connected())
 
 		w.Write(makeSuccessFrame(randomString()))
-		w.Write(makeDataFrame([]byte{0x13, 0x37}))
+		w.Write(makeDataFrame(testData))
 
-		buf := make([]byte, 2)
+		buf := make([]byte, len(testData))
 		n, err := conn.Read(buf)
 
 		assert.NoError(t, err)
+		assert.Equal(t, testData, buf)
+		assert.Equal(t, len(testData), n)
+
 		assert.NotEmpty(t, conn.SessionID())
 		assert.True(t, conn.Connected())
-		assert.Equal(t, 2, n)
-		assert.Equal(t, []byte{0x13, 0x37}, buf)
 	})
 }
 

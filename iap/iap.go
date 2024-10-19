@@ -19,11 +19,13 @@ import (
 
 var _ net.Conn = (*Conn)(nil)
 
+// overridden in tests
+var proxyOrigin = "bot:iap-tunneler"
+
 const (
 	proxySubproto = "relay.tunnel.cloudproxy.app"
 	proxyHost     = "tunnel.cloudproxy.app"
 	proxyPath     = "/v4/connect"
-	proxyOrigin   = "bot:iap-tunneler"
 )
 
 const (
@@ -78,12 +80,11 @@ type Conn struct {
 	recvReader    *io.PipeReader
 	recvWriter    *io.PipeWriter
 
-	sendNbAcked   uint64
-	sendNbUnacked uint64
-	sendNbCh      chan int
-	sendBuf       []byte
-	sendReader    *io.PipeReader
-	sendWriter    *io.PipeWriter
+	sendNbAcked uint64
+	sendNbCh    chan int
+	sendBuf     []byte
+	sendReader  *io.PipeReader
+	sendWriter  *io.PipeWriter
 
 	closeOnceFunc func()
 }
@@ -122,6 +123,14 @@ func Dial(ctx context.Context, opts ...DialOption) (*Conn, error) {
 	dopts := &dialOptions{}
 	dopts.collectOpts(opts)
 
+	url := connectURL(dopts)
+	return dial(ctx, url, opts...)
+}
+
+func dial(ctx context.Context, url string, opts ...DialOption) (*Conn, error) {
+	dopts := &dialOptions{}
+	dopts.collectOpts(opts)
+
 	header := make(http.Header)
 	header.Set("Origin", proxyOrigin)
 
@@ -143,7 +152,7 @@ func Dial(ctx context.Context, opts ...DialOption) (*Conn, error) {
 		wsOptions.CompressionMode = websocket.CompressionContextTakeover
 	}
 
-	conn, _, err := websocket.Dial(ctx, connectURL(dopts), &wsOptions)
+	conn, _, err := websocket.Dial(ctx, url, &wsOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -361,12 +370,9 @@ func (c *Conn) writeFrame() error {
 			return err
 		}
 
-		writtenNb, err := c.conn.Write(makeDataFrame(buf))
-		if err != nil {
+		if _, err := c.conn.Write(makeDataFrame(buf)); err != nil {
 			return err
 		}
-
-		c.sendNbUnacked += uint64(writtenNb)
 	}
 
 	return nil
