@@ -5,7 +5,7 @@ on:
     branches:
       - master
     tags:
-      - '*'
+      - "*"
   pull_request:
     branches:
       - master
@@ -24,7 +24,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Login to registry
         if: github.event_name != 'pull_request'
