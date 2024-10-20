@@ -42,7 +42,7 @@ func copyNBuffer(w io.Writer, r io.Reader, n int64, buf []byte) (int64, error) {
 }
 
 func makeSuccessFrame(sessionID string) []byte {
-	if len(sessionID)+6 > math.MaxUint32 {
+	if int64(len(sessionID)+6) > int64(math.MaxUint32) {
 		panic("data too large for frame")
 	}
 	buf := make([]byte, len(sessionID)+6)
@@ -60,7 +60,7 @@ func makeAckFrame(nb uint64) []byte {
 }
 
 func makeDataFrame(data []byte) []byte {
-	if len(data)+6 > math.MaxUint32 {
+	if int64(len(data)+6) > int64(math.MaxUint32) {
 		panic("data too large for frame")
 	}
 	buf := make([]byte, 6)
