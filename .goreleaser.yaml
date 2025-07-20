@@ -14,5 +14,32 @@ builds:
       - amd64
       - arm64
 
+dockers:
+  - build_flag_templates:
+      - "--platform=linux/arm64,linux/amd64"
+    image_templates:
+      - ghcr.io/cedws/iapc:latest
+      - ghcr.io/cedws/iapc:{{ .Tag }}
+
+scoops:
+  - name: iapc
+    repository:
+      name: scoop-bucket
+      owner: cedws
+      token: "{{ .Env.SCOOP_BUCKET_PUSH_TOKEN }}"
+
+homebrew_casks:
+  - name: iapc
+    repository:
+      name: homebrew-tap
+      owner: cedws
+      token: "{{ .Env.HOMEBREW_TAP_PUSH_TOKEN }}"
+    hooks:
+      post:
+        install: |
+          if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/iapc"]
+          end
+
 changelog:
   use: github-native
