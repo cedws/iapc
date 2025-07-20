@@ -14,6 +14,27 @@ flowchart LR
     end
 ```
 
+## Installation
+
+### Brew
+
+```bash
+brew install cedws/tap/iapc
+```
+
+### Scoop
+
+```bash
+scoop bucket add cedws https://github.com/cedws/scoop-bucket.git
+scoop install iapc
+```
+
+### Go
+
+```bash
+go install github.com/cedws/iapc@latest
+```
+
 ## CLI
 The CLI needs to acquire Application Default Credentials (ADC) to authenticate with the proxy, so make sure you're logged in.
 
