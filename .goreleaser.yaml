@@ -1,4 +1,11 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 version: 2
+
+checksum:
+  name_template: "checksums.txt"
+
+docker_digest:
+  name_template: "digests.txt"
 
 builds:
   - ldflags: "-s -w"
@@ -14,32 +21,52 @@ builds:
       - amd64
       - arm64
 
-dockers:
-  - build_flag_templates:
-      - "--platform=linux/arm64,linux/amd64"
-    image_templates:
-      - ghcr.io/cedws/iapc:latest
-      - ghcr.io/cedws/iapc:{{ .Tag }}
+docker_signs:
+  - ids:
+      - dockers_v2
+    cmd: cosign
+    args:
+      - "sign"
+      - "--yes"
+      - "${artifact}"
+    env:
+      - COSIGN_YES=true
+
+dockers_v2:
+  - id: dockers_v2
+    images:
+      - 'ghcr.io/{{ envOrDefault "GITHUB_REPOSITORY_OWNER" "cedws" }}/{{ .ProjectName }}'
+    tags:
+      - "{{ .Tag }}"
+      - "v{{ .Major }}"
+      - "latest"
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    build_args:
+      PROJECT_NAME: "{{ .ProjectName }}"
+    flags:
+      - "--pull"
 
 scoops:
-  - name: iapc
+  - skip_upload: '{{ eq (envOrDefault "REPO_VISIBILITY" "private") "private" }}'
     repository:
       name: scoop-bucket
-      owner: cedws
+      owner: '{{ envOrDefault "GITHUB_REPOSITORY_OWNER" "cedws" }}'
       token: "{{ .Env.SCOOP_BUCKET_PUSH_TOKEN }}"
 
 homebrew_casks:
-  - name: iapc
+  - skip_upload: '{{ eq (envOrDefault "REPO_VISIBILITY" "private") "private" }}'
     repository:
       name: homebrew-tap
-      owner: cedws
+      owner: '{{ envOrDefault "GITHUB_REPOSITORY_OWNER" "cedws" }}'
       token: "{{ .Env.HOMEBREW_TAP_PUSH_TOKEN }}"
     hooks:
       post:
         install: |
-          if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/iapc"]
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/{{ .ProjectName }}"]
           end
 
 changelog:
-  use: github-native
+  use: github
