@@ -1,13 +1,13 @@
 module github.com/cedws/iapc
 
-go 1.22.0
+go 1.23.0
 
 require (
 	github.com/charmbracelet/log v0.4.0
 	github.com/coder/websocket v1.8.12
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.9.0
-	golang.org/x/oauth2 v0.23.0
+	golang.org/x/oauth2 v0.27.0
 )
 
 require (
